@@ -23,7 +23,7 @@ static void __exit blkdev_driver_exit(void)
 	pr_info("driver exit\n");
 }
 
-static int open_bdev(void)
+static int open_bdev(const char *arg, const struct kernel_param *kp)
 {
 	struct file *bdev_file = bdev_file_open_by_path(blkdev_name, BLK_OPEN_READ | BLK_OPEN_WRITE, NULL, NULL);
 	
@@ -35,7 +35,12 @@ static int open_bdev(void)
 	return 0;
 }
 
-static int close_bdev(void)
+static const struct kernel_param_ops driver_module_open_blkdev_ops = {
+	.set = open_bdev,
+	.get = NULL,
+};
+
+static int close_bdev(const char *arg, const struct kernel_param *kp)
 {
 	if (!blkdev)
 		return -EINVAL;
@@ -45,34 +50,34 @@ static int close_bdev(void)
 	return 0;
 }
 
-static int driver_module_execute_command_set(const char *arg, const struct kernel_param *kp)
-{
-	if (!blkdev_name)
-		return -EINVAL;
-
-	int error = 0;
-
-	if (!strcmp(arg, "open")) { 
-		error = open_bdev();
-	} else if (!strcmp(arg, "close")) {
-		error = close_bdev();
-	} else if (!strcmp(arg, "get name")) {
-		if (!blkdev)
-			return -EINVAL;
-
-		pr_warn("%s\n", blkdev_name); // should work only if device is openned
-	} else return -EINVAL;
-    
-	return 0;
-}
-
-static const struct kernel_param_ops driver_module_execute_command_ops = {
-	.set = driver_module_execute_command_set,
+static const struct kernel_param_ops driver_module_close_blkdev_ops = {
+	.set = close_bdev,
 	.get = NULL,
 };
 
-MODULE_PARM_DESC(execute_command, "Execute_command");
-module_param_cb(execute_command, &driver_module_execute_command_ops, NULL, S_IWUSR);
+static int get_name(const char *arg, const struct kernel_param *kp)
+{
+	if (!blkdev)
+		return -EINVAL;
+
+	pr_warn("%s\n", blkdev_name); // should work only if device is openned
+	
+	return 0;
+}
+
+static const struct kernel_param_ops driver_module_get_name_ops = {
+	.set = get_name,
+	.get = NULL,
+};
+
+MODULE_PARM_DESC(open_blkdev, "Open block device");
+module_param_cb(open_blkdev, &driver_module_open_blkdev_ops, NULL, S_IWUSR);
+
+MODULE_PARM_DESC(close_blkdev, "Close openned block device");
+module_param_cb(close_blkdev, &driver_module_close_blkdev_ops, NULL, S_IWUSR);
+
+MODULE_PARM_DESC(get_name, "Get openned block device name");
+module_param_cb(get_name, &driver_module_get_name_ops, NULL, S_IWUSR);
 
 MODULE_PARM_DESC(blkdev_name, "Block device name");
 module_param_named(blkdev_name, blkdev_name, charp, S_IRUGO | S_IWUSR);
