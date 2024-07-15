@@ -1,8 +1,9 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-// #include <linux/blkdev.h>
+#include <linux/blkdev.h>
 
-static char *blkdev_name; 
+static char *blkdev_name;
+static struct block_device *blkdev;  
 
 static int __init blkdev_driver_init(void)
 {
@@ -13,77 +14,80 @@ static int __init blkdev_driver_init(void)
 
 static void __exit blkdev_driver_exit(void)
 {
+	if (!blkdev_name)
+		kfree(blkdev_name);
+
+	if (!blkdev)
+		kfree(blkdev);
+
 	pr_info("driver exit\n");
 }
 
-// static int driver_module_blkdev_name_set(const char *arg, const struct kernel_param *kp)
-// {
-// 	ssize_t len = strlen(arg) + 1;
+static int driver_module_execute_command_set(const char *arg, const struct kernel_param *kp)
+{
+	if (!blkdev_name)
+		return -EINVAL;
 
-// 	if (device_name) {
-// 		kfree(device_name);
-// 		device_name = NULL;
-// 	}
-	
-// 	device_name = kzalloc(sizeof(char) * len, GFP_KERNEL);
-// 	if (!device_name)
-// 		return -ENOMEM;
-// 	strcpy(device_name, arg);
-	
-// 	return 0;
-// }
+	int error = 0;
 
-// static int driver_module_blkdev_name_get(char *buf, const struct kernel_param *kp)
-// {
-// 	ssize_t len;
-
-// 	if (!device_name)
-// 		return -EINVAL;
-// 	len = strlen(device_name);
-
-// 	strcpy(buf, device_name);
-
-// 	return len;
-// }
-
-// static const struct kernel_param_ops driver_module_device_name_ops = {
-// 	.set = driver_module_device_name_set,
-// 	.get = driver_module_device_name_get,
-// };
-
-// static int driver_module_execute_command_set(const char *command, const struct kernel_param *kp)
-// {
-// 	switch {
-//         case strcmp(command, "open"):
-            
-//             break;
+	switch {
+        case !strcmp(command, "open"):
+			error = open_bdev();
+            break;
         
-//         case strcmp(command, "close"):
+        case !strcmp(command, "close"):
+			error = close_bdev();
+            break;
 
-//             break;
+        case !strcmp(command, "get name"):
+			if (!blkdev):
+				return -EINVAL;
 
-//         case strcmp(command "get name"):
-//             pr_warn(device_name, "\n")
-//             break;
+            pr_warn("%s\n", device_name) // should work only if device is openned
+            break;
         
-//         default:
-//             return -EINVAL;
-//             break;
-//     }
+        default:
+            return -EINVAL;
+            break;
+    }
 
-// 	return 0;
-// }
+	return 0;
+}
 
-// static const struct execute_command_ops driver_module_execute_command_ops = {
-// 	.set = driver_module_execute_command_set,
-// 	.get = NULL,
-// };
+static int open_bdev()
+{
+	struct file *bdev_file = bdev_file_open_by_path(blkdev_name, BLK_OPEN_READ | BLK_OPEN_WRITE, NULL, NULL);
+	
+	if (IS_ERR(bdev_file)) {
+		error = PTR_ERR(bdev_file);
+		return error;
+	}
+
+	blkdev = *file_bdev(file);
+
+	return 0;
+}
+
+static int close_bdev()
+{
+	if (!blkdev)
+		return -EINVAL;
+	
+	kfree(blkdev);
+	
+	return 0;
+}
+
+static const struct kernel_param_ops driver_module_execute_command_ops = {
+	.set = driver_module_execute_command_set,
+	.get = NULL,
+};
+
+MODULE_PARM_DESC(execute_command, "Execute_command");
+module_param_cb(execute_command, &driver_module_execute_command_ops, NULL, S_IWUSR);
 
 MODULE_PARM_DESC(device_name, "Device name");
 module_param_named(device_name, blkdev_name, charp, S_IRUGO | S_IWUSR);
-
-// MODULE_PARM_DESC(execute_command, "Execute_command");
-// module_param_cb(execute_command, &driver_module_execute_command_ops, NULL, S_IWUSR);
 
 module_init(driver_init);
 module_exit(driver_exit);
