@@ -30,27 +30,17 @@ static int driver_module_execute_command_set(const char *arg, const struct kerne
 
 	int error = 0;
 
-	switch {
-        case !strcmp(command, "open"):
-			error = open_bdev();
-            break;
-        
-        case !strcmp(command, "close"):
-			error = close_bdev();
-            break;
+	if (!strcmp(command, "open")) { 
+		error = open_bdev();
+	} else if (!strcmp(command, "close")) {
+		error = close_bdev();
+	} else if (!strcmp(command, "get name")) {
+		if (!blkdev):
+			return -EINVAL;
 
-        case !strcmp(command, "get name"):
-			if (!blkdev):
-				return -EINVAL;
-
-            pr_warn("%s\n", device_name) // should work only if device is openned
-            break;
-        
-        default:
-            return -EINVAL;
-            break;
-    }
-
+		pr_warn("%s\n", device_name) // should work only if device is openned
+	} else return -EINVAL;
+    
 	return 0;
 }
 
