@@ -23,9 +23,30 @@ static void __exit blkdev_driver_exit(void)
 	pr_info("driver exit\n");
 }
 
+static char *get_path_from_name(const char *blkdev_name) // removal of the '\n' in the end
+{
+	char *blkdev_path = NULL;
+	
+	if (!blkdev_name)
+		return NULL;
+	
+	size_t len = strlen(blkdev_name);
+	if (len < 2) // name is either empty or "\n"
+		return NULL; 
+
+	blkdev_path = kzalloc(sizeof(char) * (len - 1));
+	strncpy(blkdev_path, blkdev_name, len - 1);
+
+	return blkdev_path;	
+}
+
 static int open_bdev(const char *arg, const struct kernel_param *kp)
 {
-	struct file *bdev_file = bdev_file_open_by_path(blkdev_name, BLK_OPEN_READ | BLK_OPEN_WRITE, NULL, NULL);
+	const char *blkdev_path = get_path_from_name(blkdev_name);
+	if (!blkdev_path)
+		return -EINVAL;
+
+	struct file *bdev_file = bdev_file_open_by_path(blkdev_path, BLK_OPEN_READ | BLK_OPEN_WRITE, NULL, NULL);
 	
 	if (IS_ERR(bdev_file))
 		return PTR_ERR(bdev_file);
@@ -46,6 +67,7 @@ static int close_bdev(const char *arg, const struct kernel_param *kp)
 		return -EINVAL;
 	
 	kfree(blkdev);
+	blkdev = NULL;
 	
 	return 0;
 }
@@ -57,10 +79,10 @@ static const struct kernel_param_ops driver_module_close_blkdev_ops = {
 
 static int get_name(const char *arg, const struct kernel_param *kp)
 {
-	if (!blkdev)
+	if (!blkdev) 			// should work only if device is openned
 		return -EINVAL;
 
-	pr_warn("%s\n", blkdev_name); // should work only if device is openned
+	pr_warn("%s\n", blkdev_name);
 	
 	return 0;
 }
